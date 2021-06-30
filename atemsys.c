@@ -133,6 +133,7 @@
 #include <linux/compat.h>
 #include <linux/slab.h>
 #include <linux/device.h>
+#include <linux/dma-direct.h>
 
 #if ((defined CONFIG_OF) \
        && (LINUX_VERSION_CODE >= KERNEL_VERSION(4,6,0) /* not tested */))
@@ -1838,11 +1839,19 @@ static int device_mmap(struct file *filp, struct vm_area_struct *vma)
 #if (defined __arm__) || (defined __aarch64__)
          dwDmaPfn = (dmaAddr >> PAGE_SHIFT);
 #if (defined CONFIG_PCI)
-         if ((NULL != pDevDesc->pPcidev) && (0 != pDevDesc->pPcidev->dev.dma_pfn_offset))
+ #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,10,0)) 
+         if ((NULL != pDevDesc->pPcidev) && (0 != pDevDesc->pPcidev->dev.dma_range_map->offset))
+         {
+            dwDmaPfn = dwDmaPfn + pDevDesc->pPcidev->dev.dma_range_map->offset;
+            INF("mmap: remap_pfn_range dma pfn 0x%x, offset pfn 0x%x\n",
+                        dwDmaPfn, (u32)pDevDesc->pPcidev->dev.dma_range_map->offset);
+ #else 
+	if ((NULL != pDevDesc->pPcidev) && (0 != pDevDesc->pPcidev->dev.dma_pfn_offset))
          {
             dwDmaPfn = dwDmaPfn + pDevDesc->pPcidev->dev.dma_pfn_offset;
             INF("mmap: remap_pfn_range dma pfn 0x%x, offset pfn 0x%x\n",
                         dwDmaPfn, (u32)pDevDesc->pPcidev->dev.dma_pfn_offset);
+ #endif
          }
          else
 #endif
